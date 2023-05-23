@@ -40,6 +40,8 @@ dependencies:
   window_manager: ^0.2.7
   video_player_win: ^2.2.0
   video_player: ^2.6.0
+  csv: ^5.0.1
+  file_picker: ^5.2.6 
 
 dev_dependencies:
   flutter_test:

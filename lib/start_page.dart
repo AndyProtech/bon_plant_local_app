@@ -1,7 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:bon_plant_local_app/model/data_controller_model.dart';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:nsg_controls/nsg_controls.dart';
+import 'package:nsg_data/helpers/nsg_data_format.dart';
 
 import 'controllers/irrigation_row_controller.dart';
 import 'controllers/student_controller.dart';
@@ -95,7 +101,8 @@ class _StartPageState extends State<StartPage> {
                             child: Text('Дни полива'),
                           ),
                           dataC.obx((state) => irrigationDays()),
-                          dataC.obx((state) => irrigationList())
+                          dataC.obx((state) => irrigationList()),
+                          exportButton()
                         ],
                       ),
                     ),
@@ -192,6 +199,86 @@ class _StartPageState extends State<StartPage> {
         }
         dataC.sendNotify();
       },
+    );
+  }
+
+  Widget exportButton() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        NsgButton(
+          width: 200,
+          margin: const EdgeInsets.only(top: 30),
+          text: 'Импорт из CSV',
+          onPressed: () async {
+            FilePickerResult? result = await FilePicker.platform.pickFiles(
+              withData: true,
+              type: FileType.custom,
+              allowedExtensions: ['csv'],
+            );
+            if (result != null) {
+              PlatformFile file = result.files.first;
+
+              final input = File(file.name).openRead();
+              final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
+              irrC.items.clear();
+              fields.asMap().forEach((key, value) async {
+                if (key == 0) {
+                  studC.currentItem.name = value[0];
+                  studC.currentItem.studentClass = value[1];
+                  studC.currentItem.experimentDays = value[2];
+                } else {
+                  var item = irrC.items.firstWhereOrNull((element) => element.day == value[0] && element.hour == value[1]);
+                  if (item != null) {
+                    item.irrigation = int.parse(value[2]);
+                  } else {
+                    await irrC.createNewItemAsync();
+                    irrC.currentItem.day = value[0];
+                    irrC.currentItem.hour = value[1];
+                    irrC.currentItem.irrigation = value[2];
+                    await irrC.itemPagePost(goBack: false);
+                  }
+                  dataC.sendNotify();
+                }
+              });
+              await irrC.refreshData();
+              dataC.sendNotify();
+              studC.sendNotify();
+            }
+
+            // Get.dialog(picker, barrierDismissible: true);
+          },
+        ),
+        const SizedBox(width: 15),
+        NsgButton(
+          width: 200,
+          margin: const EdgeInsets.only(top: 30),
+          text: 'Экспорт в CSV',
+          onPressed: () async {
+            List<List<dynamic>> doc = [];
+            doc.add([
+              (studC.currentItem.name),
+              (studC.currentItem.studentClass),
+              '${studC.currentItem.experimentDays}',
+              '${NsgDateFormat.dateFormat(DateTime.now(), format: 'dd MMM yyyy / HH:mm')}',
+            ]);
+            for (var row in irrC.items) {
+              doc.add([row.day, row.hour, row.irrigation]);
+            }
+            final csvData = const ListToCsvConverter().convert(doc);
+            //assert(csvData == '",b",3.1,42\r\n"n\n"');
+
+            String? outputFile = await FilePicker.platform.saveFile(
+              dialogTitle: 'Укажите директорию и название файла для экспорта в CSV:',
+              fileName: 'irrigation-${NsgDateFormat.dateFormat(DateTime.now(), format: 'dd-MM-yyyy_HH-mm')}.csv',
+            );
+            try {
+              File returnedFile = File('$outputFile');
+              await returnedFile.writeAsString(csvData);
+            } catch (e) {}
+          },
+        ),
+      ],
     );
   }
 }
