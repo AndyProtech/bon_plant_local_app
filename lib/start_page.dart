@@ -12,7 +12,6 @@ import 'package:nsg_data/helpers/nsg_data_format.dart';
 import 'controllers/irrigation_row_controller.dart';
 import 'controllers/student_controller.dart';
 import 'interactive_watering.dart';
-import 'model/data_controller.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({Key? key}) : super(key: key);
@@ -25,7 +24,6 @@ class _StartPageState extends State<StartPage> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   var studC = Get.find<StudentController>();
   var irrC = Get.find<IrrigationRowController>();
-  var dataC = Get.find<DataController>();
   int currentDay = 1;
 
   @override
@@ -100,8 +98,8 @@ class _StartPageState extends State<StartPage> {
                             padding: EdgeInsets.only(bottom: 10),
                             child: Text('Дни полива'),
                           ),
-                          dataC.obx((state) => irrigationDays()),
-                          dataC.obx((state) => irrigationList()),
+                          irrC.obx((state) => irrigationDays()),
+                          irrC.obx((state) => irrigationList()),
                           exportButton()
                         ],
                       ),
@@ -127,7 +125,7 @@ class _StartPageState extends State<StartPage> {
             InkWell(
               onTap: () {
                 currentDay = i;
-                dataC.sendNotify();
+                irrC.sendNotify();
               },
               onHover: (value) {
                 if (currentDay != i) {
@@ -194,10 +192,9 @@ class _StartPageState extends State<StartPage> {
           irrC.currentItem.day = currentDay;
           irrC.currentItem.hour = bar;
           irrC.currentItem.irrigation = value;
-          //expC.currentItem.wateringMode.addRow(irrC.currentItem);
           await irrC.itemPagePost(goBack: false);
         }
-        dataC.sendNotify();
+        irrC.sendNotify();
       },
     );
   }
@@ -216,33 +213,39 @@ class _StartPageState extends State<StartPage> {
               type: FileType.custom,
               allowedExtensions: ['csv'],
             );
+            //print(result);
             if (result != null) {
               PlatformFile file = result.files.first;
 
               final input = File(file.name).openRead();
               final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
               irrC.items.clear();
+              // print(irrC.items);
+              // print(fields);
               fields.asMap().forEach((key, value) async {
                 if (key == 0) {
                   studC.currentItem.name = value[0];
                   studC.currentItem.studentClass = value[1];
                   studC.currentItem.experimentDays = value[2];
                 } else {
-                  var item = irrC.items.firstWhereOrNull((element) => element.day == value[0] && element.hour == value[1]);
-                  if (item != null) {
-                    item.irrigation = int.parse(value[2]);
-                  } else {
-                    await irrC.createNewItemAsync();
-                    irrC.currentItem.day = value[0];
-                    irrC.currentItem.hour = value[1];
-                    irrC.currentItem.irrigation = value[2];
-                    await irrC.itemPagePost(goBack: false);
-                  }
-                  dataC.sendNotify();
+                  // var item = irrC.items.firstWhereOrNull((element) => element.day == value[0] && element.hour == value[1]);
+                  // print(item);
+                  // if (item != null) {
+                  //   item.irrigation = int.parse(value[2]);
+                  // } else {
+                  await irrC.createNewItemAsync();
+                  irrC.currentItem.day = value[0];
+                  irrC.currentItem.hour = value[1];
+                  irrC.currentItem.irrigation = value[2];
+                  irrC.items.add(irrC.currentItem);
+                  await irrC.itemPagePost(goBack: false);
+                  // }
                 }
               });
-              await irrC.refreshData();
-              dataC.sendNotify();
+              //await irrC.refreshData();
+              //print(irrC.items.length);
+
+              irrC.sendNotify();
               studC.sendNotify();
             }
 
