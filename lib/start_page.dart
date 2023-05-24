@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:nsg_controls/nsg_controls.dart';
 import 'package:nsg_data/helpers/nsg_data_format.dart';
+import 'package:nsg_data/helpers/nsg_data_guid.dart';
 
 import 'controllers/irrigation_row_controller.dart';
 import 'controllers/student_controller.dart';
@@ -99,7 +100,7 @@ class _StartPageState extends State<StartPage> {
                             child: Text('Дни полива'),
                           ),
                           irrC.obx((state) => irrigationDays()),
-                          irrC.obx((state) => irrigationList()),
+                          irrC.obx((state) => irrigationWidget()),
                           exportButton()
                         ],
                       ),
@@ -119,6 +120,8 @@ class _StartPageState extends State<StartPage> {
     for (var i = 1; i <= studC.currentItem.experimentDays; i++) {
       var onhover = currentDay == i;
       var ml = getIrrigationAmount(day: i);
+      bool hovered = false;
+      bool copied = irrC.selectedWateringDay == i;
       list.add(StatefulBuilder(builder: (context, setstate) {
         return Column(
           children: [
@@ -161,12 +164,60 @@ class _StartPageState extends State<StartPage> {
                   )),
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
               child: Text(
                 '$mlмл',
                 style: TextStyle(fontSize: nsgtheme.sizeS),
               ),
-            )
+            ),
+            StatefulBuilder(builder: (context, state) {
+              return InkWell(
+                onTap: () async {
+                  if (irrC.selectedWateringDay == 0) {
+                    irrC.selectedWateringDay = i;
+                    copied = true;
+                  } else if (irrC.selectedWateringDay == i) {
+                    irrC.selectedWateringDay = 0;
+                    copied = false;
+                  } else {
+                    var watering = irrC.items.where((element) => element.day == irrC.selectedWateringDay && element.irrigation > 0);
+                    irrC.items.removeWhere((element) => element.day == i && element.irrigation > 0);
+                    List<IrrigationRow> newrows = [];
+                    for (var row in watering) {
+                      IrrigationRow newrow = IrrigationRow();
+                      newrow.irrigation = row.irrigation;
+                      newrow.day = i;
+                      newrow.hour = row.hour;
+                      newrow.id = Guid.newGuid();
+                      newrows.add(newrow);
+                    }
+                    for (var newrow in newrows) {
+                      irrC.items.add(newrow);
+                    }
+                    irrC.sendNotify();
+                  }
+
+                  state(() {});
+                },
+                onHover: (hover) {
+                  hovered = hover;
+                  state(() {});
+                },
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: Icon(
+                    copied ? Icons.close : Icons.copy,
+                    size: hovered ? 24 : 16,
+                    color: copied
+                        ? nsgtheme.colorError
+                        : hovered
+                            ? nsgtheme.colorMain
+                            : nsgtheme.colorGrey,
+                  ),
+                ),
+              );
+            })
           ],
         );
       }));
@@ -174,28 +225,33 @@ class _StartPageState extends State<StartPage> {
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: list);
   }
 
-  Widget irrigationList() {
+  Widget irrigationWidget() {
     List<int> values = [];
     for (var i = 0; i < 24; i++) {
       var item = irrC.items.firstWhereOrNull((element) => element.day == currentDay && element.hour == i);
       values.add(item == null ? 0 : item.irrigation);
     }
-    return InteractiveWatering(
-      key: GlobalKey(),
-      values: values,
-      onChanged: (bar, value) async {
-        var item = irrC.items.firstWhereOrNull((element) => element.day == currentDay && element.hour == bar);
-        if (item != null) {
-          item.irrigation = value;
-        } else {
-          await irrC.createNewItemAsync();
-          irrC.currentItem.day = currentDay;
-          irrC.currentItem.hour = bar;
-          irrC.currentItem.irrigation = value;
-          await irrC.itemPagePost(goBack: false);
-        }
-        irrC.sendNotify();
-      },
+    return AnimatedCrossFade(
+      duration: const Duration(milliseconds: 1000),
+      firstChild: const SizedBox(width: 1200),
+      secondChild: InteractiveWatering(
+        key: GlobalKey(),
+        values: values,
+        onChanged: (bar, value) async {
+          var item = irrC.items.firstWhereOrNull((element) => element.day == currentDay && element.hour == bar);
+          if (item != null) {
+            item.irrigation = value;
+          } else {
+            await irrC.createNewItemAsync();
+            irrC.currentItem.day = currentDay;
+            irrC.currentItem.hour = bar;
+            irrC.currentItem.irrigation = value;
+            await irrC.itemPagePost(goBack: false);
+          }
+          irrC.sendNotify();
+        },
+      ),
+      crossFadeState: studC.currentItem.experimentDays == 0 ? CrossFadeState.showFirst : CrossFadeState.showSecond,
     );
   }
 
