@@ -26,6 +26,7 @@ class _StartPageState extends State<StartPage> {
   var studC = Get.find<StudentController>();
   var irrC = Get.find<IrrigationRowController>();
   int currentDay = 1;
+  String nameValidate = '', classValidate = '', daysValidate = '';
 
   @override
   void initState() {
@@ -58,12 +59,20 @@ class _StartPageState extends State<StartPage> {
                         children: [
                           const Text('УЧЕНИК'),
                           studC.obx((state) => Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: NsgInput(
                                       label: 'Фамилия Имя',
                                       dataItem: studC.currentItem,
                                       fieldName: StudentGenerated.nameName,
+                                      validateText: nameValidate,
+                                      onEditingComplete: (p0, p1) {
+                                        if (studC.currentItem.name.isNotEmpty) {
+                                          nameValidate = '';
+                                          setState(() {});
+                                        }
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -72,6 +81,13 @@ class _StartPageState extends State<StartPage> {
                                       label: 'Класс',
                                       dataItem: studC.currentItem,
                                       fieldName: StudentGenerated.nameStudentClass,
+                                      validateText: classValidate,
+                                      onEditingComplete: (p0, p1) {
+                                        if (studC.currentItem.studentClass.isNotEmpty) {
+                                          classValidate = '';
+                                          setState(() {});
+                                        }
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -80,9 +96,15 @@ class _StartPageState extends State<StartPage> {
                                       label: 'Дней эксперимента',
                                       dataItem: studC.currentItem,
                                       fieldName: StudentGenerated.nameExperimentDays,
+                                      validateText: daysValidate,
                                       onEditingComplete: (p0, p1) {
                                         if (studC.currentItem.experimentDays > 30) {
                                           studC.currentItem.experimentDays = 30;
+                                        } else if (studC.currentItem.experimentDays < 1) {
+                                          studC.currentItem.experimentDays = 1;
+                                        }
+                                        if (studC.currentItem.experimentDays > 0) {
+                                          daysValidate = '';
                                         }
                                         setState(() {});
                                       },
@@ -314,10 +336,29 @@ class _StartPageState extends State<StartPage> {
           margin: const EdgeInsets.only(top: 30),
           text: 'Экспорт в CSV',
           onPressed: () async {
+            bool validate = true;
+            if (studC.currentItem.name.isEmpty) {
+              nameValidate = 'Введите Фамилию и Имя';
+              validate = false;
+            }
+            if (studC.currentItem.studentClass.isEmpty) {
+              classValidate = 'Введите класс ученика';
+              validate = false;
+            }
+            if (studC.currentItem.experimentDays == 0) {
+              daysValidate = 'Введите количество дней эксперимента';
+              validate = false;
+            }
+            if (!validate) {
+              setState(() {});
+              return;
+            }
             List<List<dynamic>> doc = [];
             doc.add([
-              (studC.currentItem.name),
-              (studC.currentItem.studentClass),
+              'BonPlant',
+              'v0.1',
+              studC.currentItem.name,
+              studC.currentItem.studentClass,
               '${studC.currentItem.experimentDays}',
               '${NsgDateFormat.dateFormat(DateTime.now(), format: 'dd MMM yyyy / HH:mm')}',
             ]);
