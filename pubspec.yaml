@@ -42,6 +42,7 @@ dependencies:
   video_player: ^2.6.0
   csv: ^5.0.1
   file_picker: ^5.2.6 
+  translit: ^2.0.1
 
 dev_dependencies:
   flutter_test:

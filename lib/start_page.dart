@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:nsg_controls/nsg_controls.dart';
 import 'package:nsg_data/helpers/nsg_data_format.dart';
 import 'package:nsg_data/helpers/nsg_data_guid.dart';
+import 'package:translit/translit.dart';
 
 import 'controllers/irrigation_row_controller.dart';
 import 'controllers/student_controller.dart';
@@ -297,14 +298,54 @@ class _StartPageState extends State<StartPage> {
 
               final input = File(file.name).openRead();
               final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
+              var appName = fields[0][0];
+              if (appName != 'BonPlant') {
+                Get.dialog(NsgPopUp(
+                  showCloseButton: true,
+                  hideBackButton: true,
+                  title: 'Ошибка',
+                  text: 'CSV файл не соответствует формату данного приложения',
+                  contentBottom: Center(
+                    child: NsgButton(
+                      margin: EdgeInsets.zero,
+                      width: 100,
+                      text: 'Ок',
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ),
+                ));
+                return;
+              }
+              var fileVersion = double.parse(fields[0][1].replaceAll('v', ''));
+              if (fileVersion != nsgtheme.fileExchangeVersion) {
+                Get.dialog(NsgPopUp(
+                  showCloseButton: true,
+                  hideBackButton: true,
+                  title: 'Ошибка',
+                  text: 'Версия CSV файла не соответствует версии данного приложения',
+                  contentBottom: Center(
+                    child: NsgButton(
+                      margin: EdgeInsets.zero,
+                      width: 100,
+                      text: 'Ок',
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ),
+                ));
+                return;
+              }
               irrC.items.clear();
               // print(irrC.items);
               // print(fields);
               fields.asMap().forEach((key, value) async {
                 if (key == 0) {
-                  studC.currentItem.name = value[0];
-                  studC.currentItem.studentClass = value[1];
-                  studC.currentItem.experimentDays = value[2];
+                  studC.currentItem.name = value[2];
+                  studC.currentItem.studentClass = value[3];
+                  studC.currentItem.experimentDays = value[4];
                 } else {
                   // var item = irrC.items.firstWhereOrNull((element) => element.day == value[0] && element.hour == value[1]);
                   // print(item);
@@ -356,7 +397,7 @@ class _StartPageState extends State<StartPage> {
             List<List<dynamic>> doc = [];
             doc.add([
               'BonPlant',
-              'v0.1',
+              'v${nsgtheme.fileExchangeVersion}',
               studC.currentItem.name,
               studC.currentItem.studentClass,
               '${studC.currentItem.experimentDays}',
@@ -370,7 +411,8 @@ class _StartPageState extends State<StartPage> {
 
             String? outputFile = await FilePicker.platform.saveFile(
               dialogTitle: 'Укажите директорию и название файла для экспорта в CSV:',
-              fileName: 'irrigation-${NsgDateFormat.dateFormat(DateTime.now(), format: 'dd-MM-yyyy_HH-mm')}.csv',
+              fileName:
+                  '${Translit().toTranslit(source: studC.currentItem.name.replaceAll(' ', '_'))}-Irrigation-${NsgDateFormat.dateFormat(DateTime.now(), format: 'dd-MM-yyyy_HH-mm')}.csv',
             );
             try {
               File returnedFile = File('$outputFile');

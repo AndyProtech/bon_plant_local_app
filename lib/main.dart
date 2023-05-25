@@ -28,6 +28,7 @@ void main() async {
   }
 
   ControlOptions newinstance = ControlOptions(
+      fileExchangeVersion: 0.1,
       nsgButtonMargin: const EdgeInsets.only(bottom: 10),
       nsgInputMargin: const EdgeInsets.only(bottom: 10),
       nsgInputFilled: true,
