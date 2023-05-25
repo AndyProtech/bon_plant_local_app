@@ -295,11 +295,10 @@ class _StartPageState extends State<StartPage> {
             //print(result);
             if (result != null) {
               PlatformFile file = result.files.first;
-
               final input = File(file.name).openRead();
               final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
               var appName = fields[0][0];
-              if (appName != 'BonPlant') {
+              if ((fields.isEmpty && fields[0].length < 5) || appName != 'BonPlant') {
                 Get.dialog(NsgPopUp(
                   showCloseButton: true,
                   hideBackButton: true,
